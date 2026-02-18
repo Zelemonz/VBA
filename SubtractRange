@@ -1,0 +1,133 @@
+Sub Test()
+    
+    Dim wsTest As Worksheet
+    Dim rngUsed As Range
+    Dim rngSubtract1 As Range
+    Dim rngSubtract2 As Range
+    Dim rngSubtract As Range
+    Dim i As Integer
+    Dim dtStart As Date
+    Dim dtDuration As Date
+    
+    Set wsTest = Workbooks(Workbooks.Count).Sheets(1)
+    Set rngUsed = wsTest.UsedRange
+    Set rngUsed = wsTest.Range("$S$4:$T$5")
+'    Set rngUsed = wsTest.Range("$B$3:$K$23")
+    
+    
+'    Set rngSubtract1 = wsTest.PivotTables("PivotTable1").TableRange2
+'    Set rngSubtract2 = wsTest.PivotTables("PivotTable2").TableRange2
+    Set rngSubtract1 = wsTest.ListObjects(1).Range
+    Set rngSubtract2 = wsTest.ListObjects(2).Range
+    Set rngSubtract = Union(rngSubtract1, rngSubtract2)
+    
+    Set rngSubtract = wsTest.Range("$T$4,$S$5")
+    
+    dtStart = Now()
+    For i = 1 To 5000
+        rngUsed.Select
+        SubtractRange(rngUsed, rngSubtract).Select
+    Next i
+    dtDuration = Now() - dtStart
+    Debug.Print "Fancy Way: " & dtDuration
+
+    dtStart = Now()
+    For i = 1 To 5000
+        rngUsed.Select
+        RemoveRange(rngUsed, rngSubtract).Select
+    Next i
+    dtDuration = Now() - dtStart
+    Debug.Print "Less Fancy Way: " & dtDuration
+    
+End Sub
+
+Function SubtractRange(rngContainer As Range, rngSubtract As Range, Optional bWithinSameSheetOnly As Boolean = True) As Range
+    
+    Dim rngContainerArea As Range
+    Dim rngSubtractArea As Range
+    Dim rngScanIntersect As Range
+    
+    Dim rngTop As Range, rngBottom As Range, rngLeft As Range, rngRight As Range
+    Dim lRowCountTop As Long, lRowCountBottom As Long
+    Dim lColCountLeft As Long, lColCountRight As Long
+    
+    Dim rngTempAreas As Range
+    Dim rngTempExclude As Range
+    Dim rngContainerRebuilt As Range
+    
+    Dim vScan As Variant
+    
+    ' TODO
+    ' DONE (investigated and seems to clean self up) - Need to clean up areas from Container range first - ensure no overlapping areas, probably by calling self
+    ' Could have two versions - one for large ranges (using this method), and another for small ranges which is typical solution online (cell by cell)
+    ' Also warn user when lots of areas / large ranges - recursion could keep computer busy
+    '   Benchmark on work computer - how long do different scenarios take? Set warning based off of that
+    For Each rngContainerArea In rngContainer.Areas
+        For Each rngSubtractArea In rngSubtract.Areas
+            Set rngTop = Nothing
+            Set rngBottom = Nothing
+            Set rngLeft = Nothing
+            Set rngRight = Nothing
+            Set rngTempAreas = Nothing
+            
+            Set rngScanIntersect = Intersect(rngContainerArea, rngSubtractArea)
+            If Not rngScanIntersect Is Nothing Then
+                lRowCountTop = rngScanIntersect.Row - rngContainerArea.Row
+                lRowCountBottom = rngContainerArea.Rows.Count - ((rngScanIntersect.Row - rngContainerArea.Row) + rngScanIntersect.Rows.Count)
+                lColCountLeft = rngScanIntersect.Column - rngContainerArea.Column
+                lColCountRight = rngContainerArea.Columns.Count - ((rngScanIntersect.Column - rngContainerArea.Column) + rngScanIntersect.Columns.Count) '(rngScanIntersect.Column + rngScanIntersect.Columns.Count) - rngContainerArea.Columns.Count
+                If lRowCountTop > 0 Then Set rngTop = rngContainerArea.Resize(RowSize:=lRowCountTop)
+                If lRowCountBottom > 0 Then Set rngBottom = rngContainerArea.Offset(RowOffset:=lRowCountTop + rngScanIntersect.Rows.Count).Resize(RowSize:=lRowCountBottom)
+                If lColCountLeft > 0 Then Set rngLeft = rngContainerArea.Offset(RowOffset:=lRowCountTop).Resize(RowSize:=rngScanIntersect.Rows.Count, ColumnSize:=lColCountLeft)
+                If lColCountRight > 0 Then Set rngRight = rngContainerArea.Offset(RowOffset:=lRowCountTop, ColumnOffset:=lColCountLeft + rngScanIntersect.Columns.Count).Resize(RowSize:=rngScanIntersect.Rows.Count, ColumnSize:=lColCountRight)
+            End If
+            
+            If Not rngTop Is Nothing Or Not rngBottom Is Nothing Or Not rngLeft Is Nothing Or Not rngRight Is Nothing Then
+                Set rngTempExclude = rngContainerArea
+                GoTo Recurse
+            End If
+        Next rngSubtractArea
+    Next rngContainerArea
+    
+    Set SubtractRange = rngContainer ' No intersections between ranges
+    Exit Function
+    
+Recurse:
+    For Each vScan In Array(rngTop, rngBottom, rngLeft, rngRight)
+        If Not vScan Is Nothing Then
+            If rngTempAreas Is Nothing Then
+                Set rngTempAreas = vScan
+            Else
+                Set rngTempAreas = Union(rngTempAreas, vScan)
+            End If
+        End If
+    Next vScan
+    
+    Set rngContainerRebuilt = rngTempAreas
+    
+    For Each rngContainerArea In rngContainer.Areas
+        If rngContainerArea.Address <> rngTempExclude.Address Then ' Would have done a straight replace on the address to build new address, but bad idea if single-cell (could replace in multiple places)
+            Set rngContainerRebuilt = Union(rngContainerRebuilt, rngContainerArea)
+        End If
+    Next rngContainerArea
+    
+    Set SubtractRange = SubtractRange(rngContainerRebuilt, rngSubtract)
+
+End Function
+
+
+Function RemoveRange(MainRange As Range, SubRange As Range) As Range
+    
+    Dim cl As Range
+     
+    For Each cl In MainRange.Cells
+        If Intersect(cl, SubRange) Is Nothing Then
+            If RemoveRange Is Nothing Then
+                Set RemoveRange = cl
+            Else
+                Set RemoveRange = Application.Union(RemoveRange, cl)
+            End If
+        End If
+    Next
+    
+End Function
