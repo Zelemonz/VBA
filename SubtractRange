@@ -58,6 +58,7 @@ Function SubtractRange(rngContainer As Range, rngSubtract As Range, Optional bWi
     Dim vScan As Variant
     
     ' TODO
+    ' Add functionality for bWithinSameSheetOnly to allow users to subtract based on ranges across two different sheets (although consider whether this could conceivably be useful though)
     ' DONE (investigated and seems to clean self up) - Need to clean up areas from Container range first - ensure no overlapping areas, probably by calling self
     ' CANCELLED (this way is more efficient than RemoveRange() method frequently posted online) - Could have two versions - one for large ranges (using this method), and another for small ranges which is typical solution online (cell by cell)
     ' Also warn user when lots of areas / large ranges - recursion could keep computer busy
