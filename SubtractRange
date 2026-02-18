@@ -59,7 +59,7 @@ Function SubtractRange(rngContainer As Range, rngSubtract As Range, Optional bWi
     
     ' TODO
     ' DONE (investigated and seems to clean self up) - Need to clean up areas from Container range first - ensure no overlapping areas, probably by calling self
-    ' Could have two versions - one for large ranges (using this method), and another for small ranges which is typical solution online (cell by cell)
+    ' CANCELLED (this way is more efficient than RemoveRange() method frequently posted online) - Could have two versions - one for large ranges (using this method), and another for small ranges which is typical solution online (cell by cell)
     ' Also warn user when lots of areas / large ranges - recursion could keep computer busy
     '   Benchmark on work computer - how long do different scenarios take? Set warning based off of that
     For Each rngContainerArea In rngContainer.Areas
